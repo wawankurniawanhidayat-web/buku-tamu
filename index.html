@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buku Tamu - Inspektorat Daerah Kota Magelang</title>
+<style>
+  :root{
+    --hijau-tua:#1F5C3F;
+    --hijau:#2E7D46;
+    --hijau-muda:#E7F3EA;
+    --biru-baris:#DCEAF6;
+    --putih:#FFFFFF;
+    --abu-teks:#33403A;
+    --abu-border:#D3DED6;
+    --merah:#B94A3D;
+    --kuning:#B8860B;
+    --bayangan: 0 2px 8px rgba(31,92,63,0.12);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: var(--putih);
+    color: var(--abu-teks);
+  }
+  .wrap{max-width:1150px;margin:0 auto;padding:18px 16px 60px;}
+
+  header.judul{
+    text-align:center;
+    padding:18px 10px 22px;
+    border-bottom:4px solid var(--hijau-tua);
+    margin-bottom:18px;
+  }
+  header.judul h1{
+    margin:0 0 4px;
+    font-size:22px;
+    letter-spacing:1px;
+    color:var(--hijau-tua);
+  }
+  header.judul h2{
+    margin:0;
+    font-size:17px;
+    color:var(--hijau);
+    font-weight:700;
+  }
+
+  nav.tabs{
+    display:flex;
+    gap:8px;
+    margin-bottom:18px;
+    border-bottom:2px solid var(--abu-border);
+  }
+  nav.tabs button{
+    border:none;
+    background:none;
+    padding:10px 18px;
+    font-size:14.5px;
+    font-weight:600;
+    color:#6b776f;
+    cursor:pointer;
+    border-bottom:3px solid transparent;
+    margin-bottom:-2px;
+  }
+  nav.tabs button.aktif{
+    color:var(--hijau-tua);
+    border-bottom:3px solid var(--hijau-tua);
+  }
+
+  .kartu{
+    background:var(--putih);
+    border:1px solid var(--abu-border);
+    border-radius:10px;
+    box-shadow:var(--bayangan);
+    padding:18px;
+    margin-bottom:20px;
+  }
+  .kartu h3{
+    margin:0 0 14px;
+    font-size:15px;
+    color:var(--hijau-tua);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+  }
+
+  form#formTamu{
+    display:grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap:12px 16px;
+  }
+  form#formTamu .lebar{grid-column:1 / -1;}
+  label{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    color:#4a564e;
+    margin-bottom:4px;
+  }
+  input[type=text], input[type=date], input[type=number], textarea, select{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--abu-border);
+    border-radius:6px;
+    font-size:14px;
+    font-family:inherit;
+    color:var(--abu-teks);
+    background:var(--putih);
+  }
+  input:focus, textarea:focus, select:focus{
+    outline:2px solid var(--hijau);
+    outline-offset:1px;
+    border-color:var(--hijau);
+  }
+  textarea{resize:vertical;min-height:44px;}
+  .catatan-otomatis{
+    font-size:12px;
+    color:#7a877e;
+    margin-top:3px;
+    font-style:italic;
+  }
+
+  .tombol{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border:none;
+    border-radius:6px;
+    padding:9px 16px;
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .tombol-hijau{background:var(--hijau-tua);color:#fff;}
+  .tombol-hijau:hover{background:var(--hijau);}
+  .tombol-luar{background:#fff;color:var(--hijau-tua);border:1px solid var(--hijau-tua);}
+  .tombol-luar:hover{background:var(--hijau-muda);}
+  .tombol-kecil{padding:6px 10px;font-size:12.5px;border-radius:5px;}
+  .tombol-edit{background:#EFF4E9;color:var(--hijau-tua);border:1px solid var(--hijau);}
+  .tombol-edit:hover{background:#E1EEDA;}
+  .tombol-hapus{background:#FBEAE7;color:var(--merah);border:1px solid #E7B9B0;}
+  .tombol-hapus:hover{background:#F5D8D2;}
+
+  .baris-form-aksi{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;margin-top:4px;}
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+  }
+  thead th{
+    background:var(--hijau-tua);
+    color:#fff;
+    text-align:left;
+    padding:10px 10px;
+    font-size:12.5px;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:10px 10px;
+    border-bottom:1px solid var(--abu-border);
+    vertical-align:top;
+  }
+  tbody tr.baris-putih{background:var(--putih);}
+  tbody tr.baris-biru{background:var(--biru-baris);}
+  tbody tr:hover{filter:brightness(0.97);}
+  td.kolom-aksi{white-space:nowrap;}
+  td.kolom-aksi .tombol{margin-right:6px;}
+  .kosong{
+    text-align:center;
+    padding:34px 10px;
+    color:#8b968f;
+    font-size:14px;
+  }
+
+  .toolbar-atas{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:12px;
+  }
+  .cari{
+    max-width:260px;
+  }
+
+  /* Modal edit */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,40,28,0.45);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:16px;
+  }
+  .overlay.tampil{display:flex;}
+  .modal{
+    background:#fff;border-radius:10px;max-width:560px;width:100%;
+    padding:20px;box-shadow:0 10px 30px rgba(0,0,0,0.25);
+    max-height:90vh;overflow:auto;
+  }
+  .modal h3{margin-top:0;color:var(--hijau-tua);}
+  .modal-aksi{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;}
+
+  /* Rekap */
+  .filter-rekap{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    margin-bottom:16px;
+  }
+  .filter-rekap div{min-width:160px;}
+  .ringkasan{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(160px,1fr));
+    gap:12px;
+    margin-bottom:18px;
+  }
+  .ringkasan .kotak{
+    background:var(--hijau-muda);
+    border:1px solid #C9E0CE;
+    border-radius:8px;
+    padding:14px;
+    text-align:center;
+  }
+  .ringkasan .kotak .angka{
+    font-size:26px;font-weight:800;color:var(--hijau-tua);
+  }
+  .ringkasan .kotak .label{
+    font-size:12px;color:#4a564e;margin-top:2px;
+  }
+  .subjudul-rekap{
+    font-size:13.5px;font-weight:700;color:var(--hijau-tua);
+    margin:18px 0 8px;
+  }
+  .pesan-status{
+    font-size:12.5px;
+    color:#7a877e;
+    margin-top:8px;
+  }
+  @media (max-width:640px){
+    form#formTamu{grid-template-columns:1fr;}
+    table, thead, tbody, tr, th, td{font-size:12.5px;}
+  }
+  @media print{
+    nav.tabs, .kartu:first-of-type, .toolbar-atas, .filter-rekap, td.kolom-aksi, th:last-child{display:none;}
+    body{padding:0;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="judul">
+    <h1>BUKU TAMU</h1>
+    <h2>INSPEKTORAT DAERAH KOTA MAGELANG</h2>
+  </header>
+
+  <nav class="tabs">
+    <button class="aktif" data-tab="tamu">Buku Tamu</button>
+    <button data-tab="rekap">Rekap Bulanan / Tahunan</button>
+  </nav>
+
+  <!-- ===== TAB BUKU TAMU ===== -->
+  <section id="tab-tamu">
+
+    <div class="kartu">
+      <h3 id="judulForm">Tambah Data Tamu</h3>
+      <form id="formTamu">
+        <input type="hidden" id="editId">
+        <div>
+          <label for="tanggal">Tanggal</label>
+          <input type="date" id="tanggal" required>
+        </div>
+        <div>
+          <label>Hari &amp; Waktu</label>
+          <input type="text" id="hariWaktuTampil" disabled placeholder="terisi otomatis oleh sistem">
+          <div class="catatan-otomatis">Hari dihitung dari tanggal, waktu terisi otomatis saat data disimpan.</div>
+        </div>
+        <div>
+          <label for="nama">Nama Tamu</label>
+          <input type="text" id="nama" required placeholder="Nama lengkap tamu">
+        </div>
+        <div>
+          <label for="instansi">Asal Instansi</label>
+          <input type="text" id="instansi" required placeholder="Contoh: BPKAD Kota Magelang">
+        </div>
+        <div class="lebar">
+          <label for="maksud">Maksud / Tujuan</label>
+          <textarea id="maksud" required placeholder="Contoh: Mengikuti Rapat MCSP"></textarea>
+        </div>
+        <div class="lebar">
+          <label for="dituju">Yang Dituju</label>
+          <input type="text" id="dituju" required placeholder="Contoh: Bu Eny Irban RB">
+        </div>
+        <div class="baris-form-aksi">
+          <button type="button" id="btnBatalEdit" class="tombol tombol-luar" style="display:none;">Batal</button>
+          <button type="submit" class="tombol tombol-hijau" id="btnSimpan">Simpan Data</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="kartu">
+      <div class="toolbar-atas">
+        <h3 style="margin:0;">Daftar Tamu (<span id="jumlahTamu">0</span>)</h3>
+        <input type="text" class="cari" id="cariTamu" placeholder="Cari nama / instansi / tujuan...">
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Hari</th>
+              <th>Tanggal</th>
+              <th>Waktu</th>
+              <th>Nama Tamu</th>
+              <th>Asal Instansi</th>
+              <th>Maksud / Tujuan</th>
+              <th>Yang Dituju</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyTamu"></tbody>
+        </table>
+      </div>
+      <div id="pesanKosong" class="kosong" style="display:none;">Belum ada data tamu. Silakan tambahkan data di atas.</div>
+      <div class="pesan-status" id="statusSimpan"></div>
+    </div>
+
+  </section>
+
+  <!-- ===== TAB REKAP ===== -->
+  <section id="tab-rekap" style="display:none;">
+    <div class="kartu">
+      <h3>Filter Rekap</h3>
+      <div class="filter-rekap">
+        <div>
+          <label for="rekapBulan">Bulan</label>
+          <select id="rekapBulan">
+            <option value="semua">Semua Bulan</option>
+            <option value="0">Januari</option>
+            <option value="1">Februari</option>
+            <option value="2">Maret</option>
+            <option value="3">April</option>
+            <option value="4">Mei</option>
+            <option value="5">Juni</option>
+            <option value="6">Juli</option>
+            <option value="7">Agustus</option>
+            <option value="8">September</option>
+            <option value="9">Oktober</option>
+            <option value="10">November</option>
+            <option value="11">Desember</option>
+          </select>
+        </div>
+        <div>
+          <label for="rekapTahun">Tahun</label>
+          <select id="rekapTahun"></select>
+        </div>
+        <div>
+          <button type="button" class="tombol tombol-hijau" id="btnCetakRekap">Cetak / Simpan PDF</button>
+        </div>
+      </div>
+
+      <div class="ringkasan" id="ringkasanRekap"></div>
+
+      <div class="subjudul-rekap">Rincian Kunjungan</div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Hari</th>
+              <th>Tanggal</th>
+              <th>Waktu</th>
+              <th>Nama Tamu</th>
+              <th>Asal Instansi</th>
+              <th>Maksud / Tujuan</th>
+              <th>Yang Dituju</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyRekap"></tbody>
+        </table>
+      </div>
+      <div id="pesanKosongRekap" class="kosong" style="display:none;">Tidak ada data tamu pada periode ini.</div>
+
+      <div class="subjudul-rekap">Rekap per Asal Instansi</div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Asal Instansi</th><th>Jumlah Kunjungan</th></tr></thead>
+          <tbody id="tbodyInstansi"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Modal Edit -->
+<div class="overlay" id="overlayEdit">
+  <div class="modal">
+    <h3>Edit Data Tamu</h3>
+    <form id="formEdit">
+      <input type="hidden" id="editIdModal">
+      <div style="margin-bottom:10px;">
+        <label for="editTanggal">Tanggal</label>
+        <input type="date" id="editTanggal" required>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="editWaktu">Waktu</label>
+        <input type="text" id="editWaktu" required placeholder="HH:MM">
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="editNama">Nama Tamu</label>
+        <input type="text" id="editNama" required>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="editInstansi">Asal Instansi</label>
+        <input type="text" id="editInstansi" required>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="editMaksud">Maksud / Tujuan</label>
+        <textarea id="editMaksud" required></textarea>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="editDituju">Yang Dituju</label>
+        <input type="text" id="editDituju" required>
+      </div>
+      <div class="modal-aksi">
+        <button type="button" class="tombol tombol-luar" id="btnTutupModal">Batal</button>
+        <button type="submit" class="tombol tombol-hijau">Simpan Perubahan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const NAMA_HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const NAMA_BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const KUNCI_DATA = 'buku_tamu_data_v1';
+
+let dataTamu = [];
+let siapDigunakan = false;
+
+function hitungHari(tanggalStr){
+  if(!tanggalStr) return '';
+  const d = new Date(tanggalStr + 'T00:00:00');
+  return NAMA_HARI[d.getDay()];
+}
+function formatTanggalTampil(tanggalStr){
+  if(!tanggalStr) return '';
+  const d = new Date(tanggalStr + 'T00:00:00');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${dd}-${NAMA_BULAN[d.getMonth()].slice(0,3)}-${String(d.getFullYear()).slice(2)}`;
+}
+function waktuSekarang(){
+  const n = new Date();
+  return String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
+}
+
+function dengan_batas_waktu(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_, tolak)=> setTimeout(()=> tolak(new Error('waktu habis')), ms))
+  ]);
+}
+
+async function muatData(){
+  const status = document.getElementById('statusSimpan');
+  status.textContent = 'Memuat data tersimpan...';
+  try{
+    const hasil = await dengan_batas_waktu(window.storage.get('daftar-tamu', true), 4000);
+    dataTamu = hasil ? JSON.parse(hasil.value) : [];
+    status.textContent = '';
+  }catch(e){
+    dataTamu = [];
+    status.textContent = 'Penyimpanan otomatis tidak tersedia di tampilan ini — data akan tetap tampil selama sesi berjalan, tapi mungkin tidak tersimpan permanen.';
+  }
+  siapDigunakan = true;
+  renderTabelTamu();
+  isiTahunRekap();
+  renderRekap();
+}
+
+// Ambil ulang data terbaru dari penyimpanan sebelum menulis, supaya perubahan
+// dari pengguna lain (data ini bersifat bersama/shared) tidak tertimpa.
+// Dibatasi waktu supaya tidak pernah membuat tampilan macet jika penyimpanan tidak merespons.
+async function segarkanDariPenyimpanan(){
+  try{
+    const hasil = await dengan_batas_waktu(window.storage.get('daftar-tamu', true), 3000);
+    if(hasil) dataTamu = JSON.parse(hasil.value);
+  }catch(e){
+    // kalau gagal memuat ulang, lanjutkan dengan data yang ada di memori
+  }
+}
+
+// Menyimpan berjalan di latar belakang dan TIDAK ditunggu oleh alur tampilan,
+// supaya tabel selalu langsung diperbarui walau penyimpanan lambat/tidak tersedia.
+function simpanDataLatarBelakang(){
+  const status = document.getElementById('statusSimpan');
+  status.textContent = 'Menyimpan...';
+  dengan_batas_waktu(window.storage.set('daftar-tamu', JSON.stringify(dataTamu), true), 4000)
+    .then(hasil=>{
+      status.textContent = hasil
+        ? 'Tersimpan. Data ini dapat dilihat semua pengguna aplikasi ini.'
+        : 'Gagal menyimpan secara permanen — data tetap tampil di layar ini.';
+      if(hasil) setTimeout(()=>{ if(status.textContent.startsWith('Tersimpan')) status.textContent=''; }, 3500);
+    })
+    .catch(e=>{
+      status.textContent = 'Gagal menyimpan secara permanen (' + e.message + ') — data tetap tampil di layar ini.';
+    });
+}
+
+/* ---------- Tab switching ---------- */
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('aktif'));
+    btn.classList.add('aktif');
+    const tab = btn.dataset.tab;
+    document.getElementById('tab-tamu').style.display = tab==='tamu' ? '' : 'none';
+    document.getElementById('tab-rekap').style.display = tab==='rekap' ? '' : 'none';
+    if(tab==='rekap') renderRekap();
+  });
+});
+
+/* ---------- Hari & waktu preview saat pilih tanggal ---------- */
+document.getElementById('tanggal').addEventListener('change', (e)=>{
+  const hari = hitungHari(e.target.value);
+  document.getElementById('hariWaktuTampil').value = hari ? `${hari}, akan diisi otomatis saat disimpan` : '';
+});
+
+/* ---------- Tambah data ---------- */
+document.getElementById('formTamu').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const status = document.getElementById('statusSimpan');
+  const tanggal = document.getElementById('tanggal').value;
+  const nama = document.getElementById('nama').value.trim();
+  const instansi = document.getElementById('instansi').value.trim();
+  const maksud = document.getElementById('maksud').value.trim();
+  const dituju = document.getElementById('dituju').value.trim();
+
+  const kosong = [];
+  if(!tanggal) kosong.push('Tanggal');
+  if(!nama) kosong.push('Nama Tamu');
+  if(!instansi) kosong.push('Asal Instansi');
+  if(!maksud) kosong.push('Maksud/Tujuan');
+  if(!dituju) kosong.push('Yang Dituju');
+  if(kosong.length){
+    status.textContent = 'Data belum tersimpan, lengkapi dulu: ' + kosong.join(', ');
+    return;
+  }
+
+  const entri = {
+    id: 'tamu_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+    tanggal,
+    waktu: waktuSekarang(),
+    nama, instansi, maksud, dituju
+  };
+  dataTamu.push(entri);
+
+  // Perbarui tampilan langsung, tidak menunggu proses penyimpanan.
+  renderTabelTamu();
+  isiTahunRekap();
+  e.target.reset();
+  document.getElementById('hariWaktuTampil').value = '';
+
+  simpanDataLatarBelakang();
+});
+
+/* ---------- Render tabel utama ---------- */
+function renderTabelTamu(){
+  const tbody = document.getElementById('tbodyTamu');
+  const kata = (document.getElementById('cariTamu').value || '').toLowerCase();
+
+  const urut = [...dataTamu].sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
+  const tersaring = urut.filter(t=>{
+    if(!kata) return true;
+    return (t.nama+t.instansi+t.dituju+t.maksud).toLowerCase().includes(kata);
+  });
+
+  document.getElementById('jumlahTamu').textContent = dataTamu.length;
+
+  tbody.innerHTML = '';
+  document.getElementById('pesanKosong').style.display = tersaring.length ? 'none' : 'block';
+
+  tersaring.forEach((t, idx)=>{
+    const tr = document.createElement('tr');
+    tr.className = idx % 2 === 0 ? 'baris-putih' : 'baris-biru';
+    tr.innerHTML = `
+      <td>${hitungHari(t.tanggal)}</td>
+      <td>${formatTanggalTampil(t.tanggal)}</td>
+      <td>${t.waktu}</td>
+      <td>${escapeHtml(t.nama)}</td>
+      <td>${escapeHtml(t.instansi)}</td>
+      <td>${escapeHtml(t.maksud)}</td>
+      <td>${escapeHtml(t.dituju)}</td>
+      <td class="kolom-aksi">
+        <button class="tombol tombol-kecil tombol-edit" data-id="${t.id}">Edit</button>
+        <button class="tombol tombol-kecil tombol-hapus" data-id="${t.id}">Hapus</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.tombol-edit').forEach(b=> b.addEventListener('click', ()=> bukaModalEdit(b.dataset.id)));
+  tbody.querySelectorAll('.tombol-hapus').forEach(b=> b.addEventListener('click', ()=> hapusData(b.dataset.id)));
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+document.getElementById('cariTamu').addEventListener('input', renderTabelTamu);
+
+/* ---------- Hapus ---------- */
+function hapusData(id){
+  const target = dataTamu.find(t=>t.id===id);
+  if(!target) return;
+  const yakin = confirm(`Hapus data tamu "${target.nama}" (${formatTanggalTampil(target.tanggal)})?`);
+  if(!yakin) return;
+  dataTamu = dataTamu.filter(t=>t.id!==id);
+  renderTabelTamu();
+  isiTahunRekap();
+  renderRekap();
+  simpanDataLatarBelakang();
+}
+
+/* ---------- Edit (modal) ---------- */
+function bukaModalEdit(id){
+  const t = dataTamu.find(x=>x.id===id);
+  if(!t) return;
+  document.getElementById('editIdModal').value = t.id;
+  document.getElementById('editTanggal').value = t.tanggal;
+  document.getElementById('editWaktu').value = t.waktu;
+  document.getElementById('editNama').value = t.nama;
+  document.getElementById('editInstansi').value = t.instansi;
+  document.getElementById('editMaksud').value = t.maksud;
+  document.getElementById('editDituju').value = t.dituju;
+  document.getElementById('overlayEdit').classList.add('tampil');
+}
+document.getElementById('btnTutupModal').addEventListener('click', ()=>{
+  document.getElementById('overlayEdit').classList.remove('tampil');
+});
+document.getElementById('overlayEdit').addEventListener('click', (e)=>{
+  if(e.target.id === 'overlayEdit') document.getElementById('overlayEdit').classList.remove('tampil');
+});
+
+document.getElementById('formEdit').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const id = document.getElementById('editIdModal').value;
+  const t = dataTamu.find(x=>x.id===id);
+  if(!t){
+    document.getElementById('overlayEdit').classList.remove('tampil');
+    return;
+  }
+  t.tanggal = document.getElementById('editTanggal').value;
+  t.waktu = document.getElementById('editWaktu').value;
+  t.nama = document.getElementById('editNama').value.trim();
+  t.instansi = document.getElementById('editInstansi').value.trim();
+  t.maksud = document.getElementById('editMaksud').value.trim();
+  t.dituju = document.getElementById('editDituju').value.trim();
+  renderTabelTamu();
+  isiTahunRekap();
+  renderRekap();
+  document.getElementById('overlayEdit').classList.remove('tampil');
+  simpanDataLatarBelakang();
+});
+
+/* ---------- Rekap ---------- */
+function isiTahunRekap(){
+  const select = document.getElementById('rekapTahun');
+  const tahunSaatIni = new Date().getFullYear();
+  const tahunSet = new Set(dataTamu.map(t=> new Date(t.tanggal+'T00:00:00').getFullYear()));
+  tahunSet.add(tahunSaatIni);
+  const tahunTerurut = [...tahunSet].sort((a,b)=>b-a);
+  const nilaiSekarang = select.value;
+  select.innerHTML = tahunTerurut.map(y=>`<option value="${y}">${y}</option>`).join('');
+  if(tahunTerurut.includes(Number(nilaiSekarang))) select.value = nilaiSekarang;
+}
+
+function renderRekap(){
+  const bulanPilih = document.getElementById('rekapBulan').value;
+  const tahunPilih = Number(document.getElementById('rekapTahun').value);
+
+  const tersaring = dataTamu.filter(t=>{
+    const d = new Date(t.tanggal+'T00:00:00');
+    const cocokTahun = d.getFullYear() === tahunPilih;
+    const cocokBulan = bulanPilih === 'semua' ? true : d.getMonth() === Number(bulanPilih);
+    return cocokTahun && cocokBulan;
+  }).sort((a,b)=> (a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu));
+
+  // Ringkasan
+  const totalKunjungan = tersaring.length;
+  const instansiUnik = new Set(tersaring.map(t=>t.instansi)).size;
+  const hariAktif = new Set(tersaring.map(t=>t.tanggal)).size;
+  const labelPeriode = bulanPilih === 'semua' ? `Tahun ${tahunPilih}` : `${NAMA_BULAN[Number(bulanPilih)]} ${tahunPilih}`;
+
+  document.getElementById('ringkasanRekap').innerHTML = `
+    <div class="kotak"><div class="angka">${totalKunjungan}</div><div class="label">Total Kunjungan (${labelPeriode})</div></div>
+    <div class="kotak"><div class="angka">${hariAktif}</div><div class="label">Hari dengan Kunjungan</div></div>
+    <div class="kotak"><div class="angka">${instansiUnik}</div><div class="label">Instansi Berbeda</div></div>
+  `;
+
+  // Tabel rincian
+  const tbody = document.getElementById('tbodyRekap');
+  tbody.innerHTML = '';
+  document.getElementById('pesanKosongRekap').style.display = tersaring.length ? 'none' : 'block';
+  tersaring.forEach((t, idx)=>{
+    const tr = document.createElement('tr');
+    tr.className = idx % 2 === 0 ? 'baris-putih' : 'baris-biru';
+    tr.innerHTML = `
+      <td>${hitungHari(t.tanggal)}</td>
+      <td>${formatTanggalTampil(t.tanggal)}</td>
+      <td>${t.waktu}</td>
+      <td>${escapeHtml(t.nama)}</td>
+      <td>${escapeHtml(t.instansi)}</td>
+      <td>${escapeHtml(t.maksud)}</td>
+      <td>${escapeHtml(t.dituju)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Rekap per instansi
+  const perInstansi = {};
+  tersaring.forEach(t=>{ perInstansi[t.instansi] = (perInstansi[t.instansi]||0) + 1; });
+  const tbodyInstansi = document.getElementById('tbodyInstansi');
+  const daftarInstansi = Object.entries(perInstansi).sort((a,b)=> b[1]-a[1]);
+  tbodyInstansi.innerHTML = daftarInstansi.length
+    ? daftarInstansi.map(([nm,jml], idx)=>`<tr class="${idx%2===0?'baris-putih':'baris-biru'}"><td>${escapeHtml(nm)}</td><td>${jml}</td></tr>`).join('')
+    : `<tr><td colspan="2" class="kosong">Belum ada data pada periode ini</td></tr>`;
+}
+
+document.getElementById('rekapBulan').addEventListener('change', renderRekap);
+document.getElementById('rekapTahun').addEventListener('change', renderRekap);
+document.getElementById('btnCetakRekap').addEventListener('click', ()=> window.print());
+
+/* ---------- Init ---------- */
+muatData();
+</script>
+</body>
+</html>
