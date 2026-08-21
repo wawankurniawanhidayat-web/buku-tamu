@@ -244,7 +244,7 @@
     table, thead, tbody, tr, th, td{font-size:12.5px;}
   }
   @media print{
-    nav.tabs, .kartu:first-of-type, .toolbar-atas, .filter-rekap, td.kolom-aksi, th:last-child{display:none;}
+    nav.tabs, .kartu-sembunyi-cetak, .toolbar-atas, .filter-rekap, td.kolom-aksi, #tabelDaftarTamu th:last-child{display:none;}
     body{padding:0;}
   }
 </style>
@@ -265,7 +265,7 @@
   <!-- ===== TAB BUKU TAMU ===== -->
   <section id="tab-tamu">
 
-    <div class="kartu">
+    <div class="kartu kartu-sembunyi-cetak">
       <h3 id="judulForm">Tambah Data Tamu</h3>
       <form id="formTamu">
         <div>
@@ -309,7 +309,7 @@
         <input type="text" class="cari" id="cariTamu" placeholder="Cari nama / telepon / instansi / tujuan...">
       </div>
       <div style="overflow-x:auto;">
-        <table>
+        <table id="tabelDaftarTamu">
           <thead>
             <tr>
               <th>Hari</th>
@@ -461,6 +461,7 @@ const firebaseConfig = {
   messagingSenderId: "16139616995",
   appId: "1:16139616995:web:07ad6026a90d9fb27ebbd6"
 };
+
 
 // Semua data Buku Tamu disimpan di collection "buku_tamu" — terpisah dari
 // collection "bookings" milik aplikasi jadwal ruang rapat, jadi aman walau
