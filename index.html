@@ -132,6 +132,7 @@
   }
   .tombol-hijau{background:var(--hijau-tua);color:#fff;}
   .tombol-hijau:hover{background:var(--hijau);}
+  .tombol-hijau:disabled{background:#9fb6a8;cursor:not-allowed;}
   .tombol-luar{background:#fff;color:var(--hijau-tua);border:1px solid var(--hijau-tua);}
   .tombol-luar:hover{background:var(--hijau-muda);}
   .tombol-kecil{padding:6px 10px;font-size:12.5px;border-radius:5px;}
@@ -237,6 +238,7 @@
     color:#7a877e;
     margin-top:8px;
   }
+  .pesan-status.error{ color: var(--merah); }
   @media (max-width:640px){
     form#formTamu{grid-template-columns:1fr;}
     table, thead, tbody, tr, th, td{font-size:12.5px;}
@@ -266,7 +268,6 @@
     <div class="kartu">
       <h3 id="judulForm">Tambah Data Tamu</h3>
       <form id="formTamu">
-        <input type="hidden" id="editId">
         <div>
           <label for="tanggal">Tanggal</label>
           <input type="date" id="tanggal" required>
@@ -281,19 +282,22 @@
           <input type="text" id="nama" required placeholder="Nama lengkap tamu">
         </div>
         <div>
+          <label for="telepon">Nomor Telepon</label>
+          <input type="text" id="telepon" inputmode="tel" placeholder="Contoh: 08123456789">
+        </div>
+        <div>
           <label for="instansi">Asal Instansi</label>
           <input type="text" id="instansi" required placeholder="Contoh: BPKAD Kota Magelang">
+        </div>
+        <div>
+          <label for="dituju">Yang Dituju</label>
+          <input type="text" id="dituju" required placeholder="Contoh: Bu Eny Irban RB">
         </div>
         <div class="lebar">
           <label for="maksud">Maksud / Tujuan</label>
           <textarea id="maksud" required placeholder="Contoh: Mengikuti Rapat MCSP"></textarea>
         </div>
-        <div class="lebar">
-          <label for="dituju">Yang Dituju</label>
-          <input type="text" id="dituju" required placeholder="Contoh: Bu Eny Irban RB">
-        </div>
         <div class="baris-form-aksi">
-          <button type="button" id="btnBatalEdit" class="tombol tombol-luar" style="display:none;">Batal</button>
           <button type="submit" class="tombol tombol-hijau" id="btnSimpan">Simpan Data</button>
         </div>
       </form>
@@ -302,7 +306,7 @@
     <div class="kartu">
       <div class="toolbar-atas">
         <h3 style="margin:0;">Daftar Tamu (<span id="jumlahTamu">0</span>)</h3>
-        <input type="text" class="cari" id="cariTamu" placeholder="Cari nama / instansi / tujuan...">
+        <input type="text" class="cari" id="cariTamu" placeholder="Cari nama / telepon / instansi / tujuan...">
       </div>
       <div style="overflow-x:auto;">
         <table>
@@ -312,6 +316,7 @@
               <th>Tanggal</th>
               <th>Waktu</th>
               <th>Nama Tamu</th>
+              <th>No. Telepon</th>
               <th>Asal Instansi</th>
               <th>Maksud / Tujuan</th>
               <th>Yang Dituju</th>
@@ -370,6 +375,7 @@
               <th>Tanggal</th>
               <th>Waktu</th>
               <th>Nama Tamu</th>
+              <th>No. Telepon</th>
               <th>Asal Instansi</th>
               <th>Maksud / Tujuan</th>
               <th>Yang Dituju</th>
@@ -411,6 +417,10 @@
         <input type="text" id="editNama" required>
       </div>
       <div style="margin-bottom:10px;">
+        <label for="editTelepon">Nomor Telepon</label>
+        <input type="text" id="editTelepon" inputmode="tel">
+      </div>
+      <div style="margin-bottom:10px;">
         <label for="editInstansi">Asal Instansi</label>
         <input type="text" id="editInstansi" required>
       </div>
@@ -430,13 +440,40 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+// ======================================================================
+// KONFIGURASI FIREBASE
+// Ambil object ini dari: Firebase Console > Project settings > Your apps
+// > app "buku-tamu" > SDK setup and configuration > pilih "Config"
+// Ganti SEMUA nilai di bawah ini dengan milik Anda sendiri.
+// ======================================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
+  onSnapshot, query, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCdAkDZ-pEQiqlxnYMIKbysWQPxM4pmw6s",
+  authDomain: "ruang-rapat-inspektorat.firebaseapp.com",
+  projectId: "ruang-rapat-inspektorat",
+  storageBucket: "ruang-rapat-inspektorat.firebasestorage.app",
+  messagingSenderId: "16139616995",
+  appId: "1:16139616995:web:07ad6026a90d9fb27ebbd6"
+};
+
+// Semua data Buku Tamu disimpan di collection "buku_tamu" — terpisah dari
+// collection "bookings" milik aplikasi jadwal ruang rapat, jadi aman walau
+// satu project Firebase yang sama.
+const NAMA_KOLEKSI = "buku_tamu";
+
+const appFirebase = initializeApp(firebaseConfig);
+const db = getFirestore(appFirebase);
+
 const NAMA_HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const NAMA_BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-const KUNCI_DATA = 'buku_tamu_data_v1';
 
 let dataTamu = [];
-let siapDigunakan = false;
 
 function hitungHari(tanggalStr){
   if(!tanggalStr) return '';
@@ -453,59 +490,29 @@ function waktuSekarang(){
   const n = new Date();
   return String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
 }
-
-function dengan_batas_waktu(promise, ms){
-  return Promise.race([
-    promise,
-    new Promise((_, tolak)=> setTimeout(()=> tolak(new Error('waktu habis')), ms))
-  ]);
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+function tampilkanStatus(pesan, error){
+  const status = document.getElementById('statusSimpan');
+  status.textContent = pesan;
+  status.className = 'pesan-status' + (error ? ' error' : '');
 }
 
-async function muatData(){
-  const status = document.getElementById('statusSimpan');
-  status.textContent = 'Memuat data tersimpan...';
-  try{
-    const hasil = await dengan_batas_waktu(window.storage.get('daftar-tamu', true), 4000);
-    dataTamu = hasil ? JSON.parse(hasil.value) : [];
-    status.textContent = '';
-  }catch(e){
-    dataTamu = [];
-    status.textContent = 'Penyimpanan otomatis tidak tersedia di tampilan ini — data akan tetap tampil selama sesi berjalan, tapi mungkin tidak tersimpan permanen.';
-  }
-  siapDigunakan = true;
+/* ---------- Dengarkan data secara realtime dari Firestore ---------- */
+tampilkanStatus('Memuat data...');
+const q = query(collection(db, NAMA_KOLEKSI), orderBy('tanggal', 'desc'));
+onSnapshot(q, (snapshot)=>{
+  dataTamu = snapshot.docs.map(d=> ({ id: d.id, ...d.data() }));
+  tampilkanStatus('');
   renderTabelTamu();
   isiTahunRekap();
   renderRekap();
-}
-
-// Ambil ulang data terbaru dari penyimpanan sebelum menulis, supaya perubahan
-// dari pengguna lain (data ini bersifat bersama/shared) tidak tertimpa.
-// Dibatasi waktu supaya tidak pernah membuat tampilan macet jika penyimpanan tidak merespons.
-async function segarkanDariPenyimpanan(){
-  try{
-    const hasil = await dengan_batas_waktu(window.storage.get('daftar-tamu', true), 3000);
-    if(hasil) dataTamu = JSON.parse(hasil.value);
-  }catch(e){
-    // kalau gagal memuat ulang, lanjutkan dengan data yang ada di memori
-  }
-}
-
-// Menyimpan berjalan di latar belakang dan TIDAK ditunggu oleh alur tampilan,
-// supaya tabel selalu langsung diperbarui walau penyimpanan lambat/tidak tersedia.
-function simpanDataLatarBelakang(){
-  const status = document.getElementById('statusSimpan');
-  status.textContent = 'Menyimpan...';
-  dengan_batas_waktu(window.storage.set('daftar-tamu', JSON.stringify(dataTamu), true), 4000)
-    .then(hasil=>{
-      status.textContent = hasil
-        ? 'Tersimpan. Data ini dapat dilihat semua pengguna aplikasi ini.'
-        : 'Gagal menyimpan secara permanen — data tetap tampil di layar ini.';
-      if(hasil) setTimeout(()=>{ if(status.textContent.startsWith('Tersimpan')) status.textContent=''; }, 3500);
-    })
-    .catch(e=>{
-      status.textContent = 'Gagal menyimpan secara permanen (' + e.message + ') — data tetap tampil di layar ini.';
-    });
-}
+}, (err)=>{
+  tampilkanStatus('Gagal memuat data dari Firebase: ' + err.message, true);
+});
 
 /* ---------- Tab switching ---------- */
 document.querySelectorAll('nav.tabs button').forEach(btn=>{
@@ -526,11 +533,11 @@ document.getElementById('tanggal').addEventListener('change', (e)=>{
 });
 
 /* ---------- Tambah data ---------- */
-document.getElementById('formTamu').addEventListener('submit', (e)=>{
+document.getElementById('formTamu').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const status = document.getElementById('statusSimpan');
   const tanggal = document.getElementById('tanggal').value;
   const nama = document.getElementById('nama').value.trim();
+  const telepon = document.getElementById('telepon').value.trim();
   const instansi = document.getElementById('instansi').value.trim();
   const maksud = document.getElementById('maksud').value.trim();
   const dituju = document.getElementById('dituju').value.trim();
@@ -542,25 +549,26 @@ document.getElementById('formTamu').addEventListener('submit', (e)=>{
   if(!maksud) kosong.push('Maksud/Tujuan');
   if(!dituju) kosong.push('Yang Dituju');
   if(kosong.length){
-    status.textContent = 'Data belum tersimpan, lengkapi dulu: ' + kosong.join(', ');
+    tampilkanStatus('Lengkapi dulu: ' + kosong.join(', '), true);
     return;
   }
 
-  const entri = {
-    id: 'tamu_' + Date.now() + '_' + Math.floor(Math.random()*1000),
-    tanggal,
-    waktu: waktuSekarang(),
-    nama, instansi, maksud, dituju
-  };
-  dataTamu.push(entri);
-
-  // Perbarui tampilan langsung, tidak menunggu proses penyimpanan.
-  renderTabelTamu();
-  isiTahunRekap();
-  e.target.reset();
-  document.getElementById('hariWaktuTampil').value = '';
-
-  simpanDataLatarBelakang();
+  const btn = document.getElementById('btnSimpan');
+  btn.disabled = true;
+  tampilkanStatus('Menyimpan...');
+  try{
+    await addDoc(collection(db, NAMA_KOLEKSI), {
+      tanggal, waktu: waktuSekarang(), nama, telepon, instansi, maksud, dituju,
+      dibuatPada: serverTimestamp()
+    });
+    document.getElementById('formTamu').reset();
+    document.getElementById('hariWaktuTampil').value = '';
+    tampilkanStatus('Tersimpan.');
+    setTimeout(()=>{ if(document.getElementById('statusSimpan').textContent==='Tersimpan.') tampilkanStatus(''); }, 2500);
+  }catch(err){
+    tampilkanStatus('Gagal menyimpan: ' + err.message, true);
+  }
+  btn.disabled = false;
 });
 
 /* ---------- Render tabel utama ---------- */
@@ -571,7 +579,7 @@ function renderTabelTamu(){
   const urut = [...dataTamu].sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
   const tersaring = urut.filter(t=>{
     if(!kata) return true;
-    return (t.nama+t.instansi+t.dituju+t.maksud).toLowerCase().includes(kata);
+    return (t.nama+(t.telepon||'')+t.instansi+t.dituju+t.maksud).toLowerCase().includes(kata);
   });
 
   document.getElementById('jumlahTamu').textContent = dataTamu.length;
@@ -587,6 +595,7 @@ function renderTabelTamu(){
       <td>${formatTanggalTampil(t.tanggal)}</td>
       <td>${t.waktu}</td>
       <td>${escapeHtml(t.nama)}</td>
+      <td>${escapeHtml(t.telepon||'')}</td>
       <td>${escapeHtml(t.instansi)}</td>
       <td>${escapeHtml(t.maksud)}</td>
       <td>${escapeHtml(t.dituju)}</td>
@@ -601,25 +610,19 @@ function renderTabelTamu(){
   tbody.querySelectorAll('.tombol-hapus').forEach(b=> b.addEventListener('click', ()=> hapusData(b.dataset.id)));
 }
 
-function escapeHtml(str){
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
-}
-
 document.getElementById('cariTamu').addEventListener('input', renderTabelTamu);
 
 /* ---------- Hapus ---------- */
-function hapusData(id){
+async function hapusData(id){
   const target = dataTamu.find(t=>t.id===id);
   if(!target) return;
   const yakin = confirm(`Hapus data tamu "${target.nama}" (${formatTanggalTampil(target.tanggal)})?`);
   if(!yakin) return;
-  dataTamu = dataTamu.filter(t=>t.id!==id);
-  renderTabelTamu();
-  isiTahunRekap();
-  renderRekap();
-  simpanDataLatarBelakang();
+  try{
+    await deleteDoc(doc(db, NAMA_KOLEKSI, id));
+  }catch(err){
+    tampilkanStatus('Gagal menghapus: ' + err.message, true);
+  }
 }
 
 /* ---------- Edit (modal) ---------- */
@@ -630,6 +633,7 @@ function bukaModalEdit(id){
   document.getElementById('editTanggal').value = t.tanggal;
   document.getElementById('editWaktu').value = t.waktu;
   document.getElementById('editNama').value = t.nama;
+  document.getElementById('editTelepon').value = t.telepon || '';
   document.getElementById('editInstansi').value = t.instansi;
   document.getElementById('editMaksud').value = t.maksud;
   document.getElementById('editDituju').value = t.dituju;
@@ -642,25 +646,24 @@ document.getElementById('overlayEdit').addEventListener('click', (e)=>{
   if(e.target.id === 'overlayEdit') document.getElementById('overlayEdit').classList.remove('tampil');
 });
 
-document.getElementById('formEdit').addEventListener('submit', (e)=>{
+document.getElementById('formEdit').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const id = document.getElementById('editIdModal').value;
-  const t = dataTamu.find(x=>x.id===id);
-  if(!t){
+  const perubahan = {
+    tanggal: document.getElementById('editTanggal').value,
+    waktu: document.getElementById('editWaktu').value,
+    nama: document.getElementById('editNama').value.trim(),
+    telepon: document.getElementById('editTelepon').value.trim(),
+    instansi: document.getElementById('editInstansi').value.trim(),
+    maksud: document.getElementById('editMaksud').value.trim(),
+    dituju: document.getElementById('editDituju').value.trim()
+  };
+  try{
+    await updateDoc(doc(db, NAMA_KOLEKSI, id), perubahan);
     document.getElementById('overlayEdit').classList.remove('tampil');
-    return;
+  }catch(err){
+    alert('Gagal menyimpan perubahan: ' + err.message);
   }
-  t.tanggal = document.getElementById('editTanggal').value;
-  t.waktu = document.getElementById('editWaktu').value;
-  t.nama = document.getElementById('editNama').value.trim();
-  t.instansi = document.getElementById('editInstansi').value.trim();
-  t.maksud = document.getElementById('editMaksud').value.trim();
-  t.dituju = document.getElementById('editDituju').value.trim();
-  renderTabelTamu();
-  isiTahunRekap();
-  renderRekap();
-  document.getElementById('overlayEdit').classList.remove('tampil');
-  simpanDataLatarBelakang();
 });
 
 /* ---------- Rekap ---------- */
@@ -686,7 +689,6 @@ function renderRekap(){
     return cocokTahun && cocokBulan;
   }).sort((a,b)=> (a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu));
 
-  // Ringkasan
   const totalKunjungan = tersaring.length;
   const instansiUnik = new Set(tersaring.map(t=>t.instansi)).size;
   const hariAktif = new Set(tersaring.map(t=>t.tanggal)).size;
@@ -698,7 +700,6 @@ function renderRekap(){
     <div class="kotak"><div class="angka">${instansiUnik}</div><div class="label">Instansi Berbeda</div></div>
   `;
 
-  // Tabel rincian
   const tbody = document.getElementById('tbodyRekap');
   tbody.innerHTML = '';
   document.getElementById('pesanKosongRekap').style.display = tersaring.length ? 'none' : 'block';
@@ -710,13 +711,13 @@ function renderRekap(){
       <td>${formatTanggalTampil(t.tanggal)}</td>
       <td>${t.waktu}</td>
       <td>${escapeHtml(t.nama)}</td>
+      <td>${escapeHtml(t.telepon||'')}</td>
       <td>${escapeHtml(t.instansi)}</td>
       <td>${escapeHtml(t.maksud)}</td>
       <td>${escapeHtml(t.dituju)}</td>`;
     tbody.appendChild(tr);
   });
 
-  // Rekap per instansi
   const perInstansi = {};
   tersaring.forEach(t=>{ perInstansi[t.instansi] = (perInstansi[t.instansi]||0) + 1; });
   const tbodyInstansi = document.getElementById('tbodyInstansi');
@@ -729,9 +730,6 @@ function renderRekap(){
 document.getElementById('rekapBulan').addEventListener('change', renderRekap);
 document.getElementById('rekapTahun').addEventListener('change', renderRekap);
 document.getElementById('btnCetakRekap').addEventListener('click', ()=> window.print());
-
-/* ---------- Init ---------- */
-muatData();
 </script>
 </body>
 </html>
