@@ -347,7 +347,7 @@
         </div>
         <div>
           <label for="dituju">Yang Dituju</label>
-          <input type="text" id="dituju" required placeholder="Contoh: Bu Eny Irban RB">
+          <input type="text" id="dituju" required placeholder="Contoh: Inspektur, Sekretaris, Irbanwas RB">
         </div>
         <div>
           <label for="maksud">Maksud / Tujuan</label>
@@ -640,6 +640,10 @@ document.getElementById('formTamu').addEventListener('submit', async (e)=>{
     });
     // Nomor telepon disimpan terpisah, hanya bisa dibaca setelah login.
     await setDoc(doc(db, NAMA_KOLEKSI, refTamu.id, 'privat', 'kontak'), { telepon });
+    // Segarkan peta nomor telepon supaya data yang baru saja ditambahkan langsung tampil.
+    await muatSemuaTelepon();
+    renderTabelTamu();
+    renderRekap();
     document.getElementById('formTamu').reset();
     document.getElementById('hariWaktuTampil').value = '';
     tampilkanStatus('Tersimpan.');
