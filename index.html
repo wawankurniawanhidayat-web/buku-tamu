@@ -292,7 +292,31 @@
   <!-- ===== TAB BUKU TAMU ===== -->
   <section id="tab-tamu">
 
-    <div class="kartu kartu-sembunyi-cetak">
+    <div class="kartu kartu-sembunyi-cetak" id="kartuLogin">
+      <h3 style="margin-bottom:10px;">Akses Staf</h3>
+      <div id="formLoginWrap">
+        <form id="formLogin" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+          <div style="flex:1;min-width:180px;">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" required placeholder="staf@contoh.com">
+          </div>
+          <div style="flex:1;min-width:180px;">
+            <label for="loginPassword">Kata Sandi</label>
+            <input type="password" id="loginPassword" required placeholder="Kata sandi">
+          </div>
+          <button type="submit" class="tombol tombol-hijau">Login</button>
+        </form>
+        <div class="catatan-otomatis">Login diperlukan untuk menambah/mengubah/menghapus data dan melihat nomor telepon tamu. Tanpa login, daftar tamu tetap bisa dilihat tapi nomor telepon disembunyikan.</div>
+      </div>
+      <div id="statusLoginWrap" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span style="font-size:13.5px;">Login sebagai: <strong id="emailLoginAktif"></strong></span>
+        <button type="button" class="tombol tombol-luar tombol-kecil" id="btnLogout">Logout</button>
+        <button type="button" class="tombol tombol-luar tombol-kecil" id="btnMigrasi" style="display:none;">Migrasi Nomor Telepon Data Lama</button>
+      </div>
+      <div class="pesan-status" id="statusLogin"></div>
+    </div>
+
+    <div class="kartu kartu-sembunyi-cetak" id="kartuTambahData" style="display:none;">
       <h3 id="judulForm">Tambah Data Tamu</h3>
       <form id="formTamu">
         <div>
@@ -323,7 +347,7 @@
         </div>
         <div>
           <label for="dituju">Yang Dituju</label>
-          <input type="text" id="dituju" required placeholder="Contoh: Inspektur, Sekretaris, Irbanwas RB">
+          <input type="text" id="dituju" required placeholder="Contoh: Bu Eny Irban RB">
         </div>
         <div>
           <label for="maksud">Maksud / Tujuan</label>
@@ -487,9 +511,12 @@
 // ======================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
-  onSnapshot, query, orderBy, serverTimestamp
+  getFirestore, collection, collectionGroup, addDoc, updateDoc, deleteDoc, doc, setDoc, getDocs,
+  onSnapshot, query, orderBy, serverTimestamp, deleteField
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import {
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCdAkDZ-pEQiqlxnYMIKbysWQPxM4pmw6s",
@@ -505,8 +532,18 @@ const firebaseConfig = {
 // satu project Firebase yang sama.
 const NAMA_KOLEKSI = "buku_tamu";
 
+// Nomor telepon TIDAK disimpan di dokumen utama. Disimpan terpisah di
+// sub-koleksi "privat/kontak" di bawah tiap dokumen tamu, yang aturan
+// aksesnya (lihat Security Rules) hanya boleh dibaca setelah login.
+// Dengan begitu, sebelum login nomor telepon benar-benar tidak terkirim
+// ke browser sama sekali — bukan cuma disamarkan di tampilan.
+
 const appFirebase = initializeApp(firebaseConfig);
 const db = getFirestore(appFirebase);
+const auth = getAuth(appFirebase);
+
+let sudahLogin = false;
+let petaTelepon = {}; // { idTamu: 'nomor telepon' }, hanya terisi kalau sudah login
 
 const NAMA_HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const NAMA_BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -597,10 +634,12 @@ document.getElementById('formTamu').addEventListener('submit', async (e)=>{
   btn.disabled = true;
   tampilkanStatus('Menyimpan...');
   try{
-    await addDoc(collection(db, NAMA_KOLEKSI), {
-      tanggal, waktu: waktuSekarang(), nama, telepon, instansi, jumlahPengunjung, maksud, dituju,
+    const refTamu = await addDoc(collection(db, NAMA_KOLEKSI), {
+      tanggal, waktu: waktuSekarang(), nama, instansi, jumlahPengunjung, maksud, dituju,
       dibuatPada: serverTimestamp()
     });
+    // Nomor telepon disimpan terpisah, hanya bisa dibaca setelah login.
+    await setDoc(doc(db, NAMA_KOLEKSI, refTamu.id, 'privat', 'kontak'), { telepon });
     document.getElementById('formTamu').reset();
     document.getElementById('hariWaktuTampil').value = '';
     tampilkanStatus('Tersimpan.');
@@ -611,6 +650,29 @@ document.getElementById('formTamu').addEventListener('submit', async (e)=>{
   btn.disabled = false;
 });
 
+/* ---------- Ambil nomor telepon (hanya kalau sudah login) ---------- */
+async function muatSemuaTelepon(){
+  if(!sudahLogin){ petaTelepon = {}; return; }
+  try{
+    const snap = await getDocs(query(collectionGroup(db, 'privat')));
+    const peta = {};
+    snap.forEach(d=>{
+      // d.ref.parent.parent adalah dokumen tamu induknya
+      const induk = d.ref.parent.parent;
+      if(induk && induk.parent.id === NAMA_KOLEKSI){
+        peta[induk.id] = d.data().telepon || '';
+      }
+    });
+    petaTelepon = peta;
+  }catch(err){
+    tampilkanStatus('Gagal memuat nomor telepon: ' + err.message, true);
+  }
+}
+function teleponTampil(idTamu){
+  if(!sudahLogin) return '🔒 Login untuk lihat';
+  return escapeHtml(petaTelepon[idTamu] || '-');
+}
+
 /* ---------- Render tabel utama ---------- */
 function renderTabelTamu(){
   const tbody = document.getElementById('tbodyTamu');
@@ -619,7 +681,7 @@ function renderTabelTamu(){
   const urut = [...dataTamu].sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
   const tersaring = urut.filter(t=>{
     if(!kata) return true;
-    return (t.nama+(t.telepon||'')+t.instansi+t.dituju+t.maksud).toLowerCase().includes(kata);
+    return (t.nama+(sudahLogin?(petaTelepon[t.id]||''):'')+t.instansi+t.dituju+t.maksud).toLowerCase().includes(kata);
   });
 
   document.getElementById('jumlahTamu').textContent = dataTamu.length;
@@ -635,14 +697,16 @@ function renderTabelTamu(){
       <td>${formatTanggalTampil(t.tanggal)}</td>
       <td>${t.waktu}</td>
       <td>${escapeHtml(t.nama)}</td>
-      <td>${escapeHtml(t.telepon||'')}</td>
+      <td>${teleponTampil(t.id)}</td>
       <td>${escapeHtml(t.instansi)}</td>
       <td style="text-align:center;">${t.jumlahPengunjung || 1}</td>
       <td>${escapeHtml(t.maksud)}</td>
       <td>${escapeHtml(t.dituju)}</td>
       <td class="kolom-aksi">
+        ${sudahLogin ? `
         <button class="tombol tombol-kecil tombol-edit" data-id="${t.id}">Edit</button>
         <button class="tombol tombol-kecil tombol-hapus" data-id="${t.id}">Hapus</button>
+        ` : `<span style="color:#9aa6a0;font-size:12px;">Login untuk edit</span>`}
       </td>`;
     tbody.appendChild(tr);
   });
@@ -660,6 +724,7 @@ async function hapusData(id){
   const yakin = confirm(`Hapus data tamu "${target.nama}" (${formatTanggalTampil(target.tanggal)})?`);
   if(!yakin) return;
   try{
+    await deleteDoc(doc(db, NAMA_KOLEKSI, id, 'privat', 'kontak')).catch(()=>{}); // hapus sub-dokumen telepon dulu kalau ada
     await deleteDoc(doc(db, NAMA_KOLEKSI, id));
   }catch(err){
     tampilkanStatus('Gagal menghapus: ' + err.message, true);
@@ -674,7 +739,7 @@ function bukaModalEdit(id){
   document.getElementById('editTanggal').value = t.tanggal;
   document.getElementById('editWaktu').value = t.waktu;
   document.getElementById('editNama').value = t.nama;
-  document.getElementById('editTelepon').value = t.telepon || '';
+  document.getElementById('editTelepon').value = petaTelepon[t.id] || '';
   document.getElementById('editInstansi').value = t.instansi;
   document.getElementById('editJumlahPengunjung').value = t.jumlahPengunjung || 1;
   document.getElementById('editMaksud').value = t.maksud;
@@ -691,11 +756,11 @@ document.getElementById('overlayEdit').addEventListener('click', (e)=>{
 document.getElementById('formEdit').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const id = document.getElementById('editIdModal').value;
+  const telepon = document.getElementById('editTelepon').value.trim();
   const perubahan = {
     tanggal: document.getElementById('editTanggal').value,
     waktu: document.getElementById('editWaktu').value,
     nama: document.getElementById('editNama').value.trim(),
-    telepon: document.getElementById('editTelepon').value.trim(),
     instansi: document.getElementById('editInstansi').value.trim(),
     jumlahPengunjung: Math.max(1, parseInt(document.getElementById('editJumlahPengunjung').value, 10) || 1),
     maksud: document.getElementById('editMaksud').value.trim(),
@@ -703,6 +768,8 @@ document.getElementById('formEdit').addEventListener('submit', async (e)=>{
   };
   try{
     await updateDoc(doc(db, NAMA_KOLEKSI, id), perubahan);
+    await setDoc(doc(db, NAMA_KOLEKSI, id, 'privat', 'kontak'), { telepon });
+    await muatSemuaTelepon();
     document.getElementById('overlayEdit').classList.remove('tampil');
   }catch(err){
     alert('Gagal menyimpan perubahan: ' + err.message);
@@ -756,7 +823,7 @@ function renderRekap(){
       <td>${formatTanggalTampil(t.tanggal)}</td>
       <td>${t.waktu}</td>
       <td>${escapeHtml(t.nama)}</td>
-      <td>${escapeHtml(t.telepon||'')}</td>
+      <td>${teleponTampil(t.id)}</td>
       <td>${escapeHtml(t.instansi)}</td>
       <td style="text-align:center;">${t.jumlahPengunjung || 1}</td>
       <td>${escapeHtml(t.maksud)}</td>
@@ -780,6 +847,68 @@ function renderRekap(){
 document.getElementById('rekapBulan').addEventListener('change', renderRekap);
 document.getElementById('rekapTahun').addEventListener('change', renderRekap);
 document.getElementById('btnCetakRekap').addEventListener('click', ()=> window.print());
+
+/* ---------- Login / Logout (akun bersama staf) ---------- */
+function tampilkanStatusLogin(pesan, error){
+  const el = document.getElementById('statusLogin');
+  el.textContent = pesan;
+  el.className = 'pesan-status' + (error ? ' error' : '');
+}
+
+document.getElementById('formLogin').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  tampilkanStatusLogin('Memproses login...');
+  try{
+    await signInWithEmailAndPassword(auth, email, password);
+    document.getElementById('formLogin').reset();
+    tampilkanStatusLogin('');
+  }catch(err){
+    tampilkanStatusLogin('Login gagal: periksa kembali email/kata sandi.', true);
+  }
+});
+
+document.getElementById('btnLogout').addEventListener('click', async ()=>{
+  await signOut(auth);
+});
+
+document.getElementById('btnMigrasi').addEventListener('click', async ()=>{
+  const yakin = confirm('Pindahkan nomor telepon dari data lama (sebelum fitur ini ada) ke penyimpanan terpisah yang lebih aman? Proses ini aman dijalankan berkali-kali.');
+  if(!yakin) return;
+  tampilkanStatusLogin('Migrasi berjalan...');
+  try{
+    let jumlahDipindah = 0;
+    for(const t of dataTamu){
+      if(t.telepon !== undefined){
+        // Data lama: field telepon masih menempel di dokumen utama (rentan terbaca publik).
+        await setDoc(doc(db, NAMA_KOLEKSI, t.id, 'privat', 'kontak'), { telepon: t.telepon }, { merge: true });
+        await updateDoc(doc(db, NAMA_KOLEKSI, t.id), { telepon: deleteField() });
+        jumlahDipindah++;
+      }
+    }
+    await muatSemuaTelepon();
+    tampilkanStatusLogin(`Migrasi selesai. ${jumlahDipindah} data telepon lama dipindahkan.`);
+  }catch(err){
+    tampilkanStatusLogin('Migrasi gagal: ' + err.message, true);
+  }
+});
+
+onAuthStateChanged(auth, async (user)=>{
+  sudahLogin = !!user;
+
+  document.getElementById('formLoginWrap').style.display = sudahLogin ? 'none' : 'block';
+  document.getElementById('statusLoginWrap').style.display = sudahLogin ? 'flex' : 'none';
+  document.getElementById('kartuTambahData').style.display = sudahLogin ? '' : 'none';
+  document.getElementById('btnMigrasi').style.display = sudahLogin ? '' : 'none';
+  if(sudahLogin){
+    document.getElementById('emailLoginAktif').textContent = user.email;
+  }
+
+  await muatSemuaTelepon();
+  renderTabelTamu();
+  renderRekap();
+});
 </script>
 </body>
 </html>
