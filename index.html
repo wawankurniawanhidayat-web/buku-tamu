@@ -317,8 +317,13 @@
           <input type="text" id="instansi" required placeholder="Contoh: BPKAD Kota Magelang">
         </div>
         <div>
+          <label for="jumlahPengunjung">Jumlah Pengunjung</label>
+          <input type="number" id="jumlahPengunjung" min="1" step="1" value="1" required>
+          <div class="catatan-otomatis">Isi lebih dari 1 jika tamu datang berombongan.</div>
+        </div>
+        <div class="lebar">
           <label for="dituju">Yang Dituju</label>
-          <input type="text" id="dituju" required placeholder="Contoh: Inspektur, Sekretaris, Irban RB">
+          <input type="text" id="dituju" required placeholder="Contoh: Bu Eny Irban RB">
         </div>
         <div class="lebar">
           <label for="maksud">Maksud / Tujuan</label>
@@ -345,6 +350,7 @@
               <th>Nama Tamu</th>
               <th>No. Telepon</th>
               <th>Asal Instansi</th>
+              <th>Jml. Pengunjung</th>
               <th>Maksud / Tujuan</th>
               <th>Yang Dituju</th>
               <th>Aksi</th>
@@ -404,6 +410,7 @@
               <th>Nama Tamu</th>
               <th>No. Telepon</th>
               <th>Asal Instansi</th>
+              <th>Jml. Pengunjung</th>
               <th>Maksud / Tujuan</th>
               <th>Yang Dituju</th>
             </tr>
@@ -416,7 +423,7 @@
       <div class="subjudul-rekap">Rekap per Asal Instansi</div>
       <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Asal Instansi</th><th>Jumlah Kunjungan</th></tr></thead>
+          <thead><tr><th>Asal Instansi</th><th>Jumlah Rombongan</th><th>Total Orang</th></tr></thead>
           <tbody id="tbodyInstansi"></tbody>
         </table>
       </div>
@@ -450,6 +457,10 @@
       <div style="margin-bottom:10px;">
         <label for="editInstansi">Asal Instansi</label>
         <input type="text" id="editInstansi" required>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label for="editJumlahPengunjung">Jumlah Pengunjung</label>
+        <input type="number" id="editJumlahPengunjung" min="1" step="1" required>
       </div>
       <div style="margin-bottom:10px;">
         <label for="editMaksud">Maksud / Tujuan</label>
@@ -488,7 +499,6 @@ const firebaseConfig = {
   messagingSenderId: "16139616995",
   appId: "1:16139616995:web:07ad6026a90d9fb27ebbd6"
 };
-
 
 // Semua data Buku Tamu disimpan di collection "buku_tamu" — terpisah dari
 // collection "bookings" milik aplikasi jadwal ruang rapat, jadi aman walau
@@ -567,6 +577,7 @@ document.getElementById('formTamu').addEventListener('submit', async (e)=>{
   const nama = document.getElementById('nama').value.trim();
   const telepon = document.getElementById('telepon').value.trim();
   const instansi = document.getElementById('instansi').value.trim();
+  const jumlahPengunjung = parseInt(document.getElementById('jumlahPengunjung').value, 10);
   const maksud = document.getElementById('maksud').value.trim();
   const dituju = document.getElementById('dituju').value.trim();
 
@@ -574,6 +585,7 @@ document.getElementById('formTamu').addEventListener('submit', async (e)=>{
   if(!tanggal) kosong.push('Tanggal');
   if(!nama) kosong.push('Nama Tamu');
   if(!instansi) kosong.push('Asal Instansi');
+  if(!jumlahPengunjung || jumlahPengunjung < 1) kosong.push('Jumlah Pengunjung (minimal 1)');
   if(!maksud) kosong.push('Maksud/Tujuan');
   if(!dituju) kosong.push('Yang Dituju');
   if(kosong.length){
@@ -586,7 +598,7 @@ document.getElementById('formTamu').addEventListener('submit', async (e)=>{
   tampilkanStatus('Menyimpan...');
   try{
     await addDoc(collection(db, NAMA_KOLEKSI), {
-      tanggal, waktu: waktuSekarang(), nama, telepon, instansi, maksud, dituju,
+      tanggal, waktu: waktuSekarang(), nama, telepon, instansi, jumlahPengunjung, maksud, dituju,
       dibuatPada: serverTimestamp()
     });
     document.getElementById('formTamu').reset();
@@ -625,6 +637,7 @@ function renderTabelTamu(){
       <td>${escapeHtml(t.nama)}</td>
       <td>${escapeHtml(t.telepon||'')}</td>
       <td>${escapeHtml(t.instansi)}</td>
+      <td style="text-align:center;">${t.jumlahPengunjung || 1}</td>
       <td>${escapeHtml(t.maksud)}</td>
       <td>${escapeHtml(t.dituju)}</td>
       <td class="kolom-aksi">
@@ -663,6 +676,7 @@ function bukaModalEdit(id){
   document.getElementById('editNama').value = t.nama;
   document.getElementById('editTelepon').value = t.telepon || '';
   document.getElementById('editInstansi').value = t.instansi;
+  document.getElementById('editJumlahPengunjung').value = t.jumlahPengunjung || 1;
   document.getElementById('editMaksud').value = t.maksud;
   document.getElementById('editDituju').value = t.dituju;
   document.getElementById('overlayEdit').classList.add('tampil');
@@ -683,6 +697,7 @@ document.getElementById('formEdit').addEventListener('submit', async (e)=>{
     nama: document.getElementById('editNama').value.trim(),
     telepon: document.getElementById('editTelepon').value.trim(),
     instansi: document.getElementById('editInstansi').value.trim(),
+    jumlahPengunjung: Math.max(1, parseInt(document.getElementById('editJumlahPengunjung').value, 10) || 1),
     maksud: document.getElementById('editMaksud').value.trim(),
     dituju: document.getElementById('editDituju').value.trim()
   };
@@ -718,12 +733,14 @@ function renderRekap(){
   }).sort((a,b)=> (a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu));
 
   const totalKunjungan = tersaring.length;
+  const totalPengunjung = tersaring.reduce((jumlah, t)=> jumlah + (t.jumlahPengunjung || 1), 0);
   const instansiUnik = new Set(tersaring.map(t=>t.instansi)).size;
   const hariAktif = new Set(tersaring.map(t=>t.tanggal)).size;
   const labelPeriode = bulanPilih === 'semua' ? `Tahun ${tahunPilih}` : `${NAMA_BULAN[Number(bulanPilih)]} ${tahunPilih}`;
 
   document.getElementById('ringkasanRekap').innerHTML = `
-    <div class="kotak"><div class="angka">${totalKunjungan}</div><div class="label">Total Kunjungan (${labelPeriode})</div></div>
+    <div class="kotak"><div class="angka">${totalKunjungan}</div><div class="label">Total Kunjungan/Rombongan (${labelPeriode})</div></div>
+    <div class="kotak"><div class="angka">${totalPengunjung}</div><div class="label">Total Pengunjung (Orang)</div></div>
     <div class="kotak"><div class="angka">${hariAktif}</div><div class="label">Hari dengan Kunjungan</div></div>
     <div class="kotak"><div class="angka">${instansiUnik}</div><div class="label">Instansi Berbeda</div></div>
   `;
@@ -741,18 +758,23 @@ function renderRekap(){
       <td>${escapeHtml(t.nama)}</td>
       <td>${escapeHtml(t.telepon||'')}</td>
       <td>${escapeHtml(t.instansi)}</td>
+      <td style="text-align:center;">${t.jumlahPengunjung || 1}</td>
       <td>${escapeHtml(t.maksud)}</td>
       <td>${escapeHtml(t.dituju)}</td>`;
     tbody.appendChild(tr);
   });
 
   const perInstansi = {};
-  tersaring.forEach(t=>{ perInstansi[t.instansi] = (perInstansi[t.instansi]||0) + 1; });
+  tersaring.forEach(t=>{
+    if(!perInstansi[t.instansi]) perInstansi[t.instansi] = { rombongan: 0, orang: 0 };
+    perInstansi[t.instansi].rombongan += 1;
+    perInstansi[t.instansi].orang += (t.jumlahPengunjung || 1);
+  });
   const tbodyInstansi = document.getElementById('tbodyInstansi');
-  const daftarInstansi = Object.entries(perInstansi).sort((a,b)=> b[1]-a[1]);
+  const daftarInstansi = Object.entries(perInstansi).sort((a,b)=> b[1].orang - a[1].orang);
   tbodyInstansi.innerHTML = daftarInstansi.length
-    ? daftarInstansi.map(([nm,jml], idx)=>`<tr class="${idx%2===0?'baris-putih':'baris-biru'}"><td>${escapeHtml(nm)}</td><td>${jml}</td></tr>`).join('')
-    : `<tr><td colspan="2" class="kosong">Belum ada data pada periode ini</td></tr>`;
+    ? daftarInstansi.map(([nm,jml], idx)=>`<tr class="${idx%2===0?'baris-putih':'baris-biru'}"><td>${escapeHtml(nm)}</td><td>${jml.rombongan}</td><td>${jml.orang}</td></tr>`).join('')
+    : `<tr><td colspan="3" class="kosong">Belum ada data pada periode ini</td></tr>`;
 }
 
 document.getElementById('rekapBulan').addEventListener('change', renderRekap);
