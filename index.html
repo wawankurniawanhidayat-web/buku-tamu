@@ -417,7 +417,8 @@
           <select id="rekapTahun"></select>
         </div>
         <div>
-          <button type="button" class="tombol tombol-hijau" id="btnCetakRekap">Cetak / Simpan PDF</button>
+          <button type="button" class="tombol tombol-hijau" id="btnCetakRekap" style="display:none;">Cetak / Simpan PDF</button>
+          <span id="pesanCetakTerkunci" class="catatan-otomatis" style="margin-top:0;">🔒 Login untuk mencetak laporan PDF (berisi nomor telepon tamu).</span>
         </div>
       </div>
 
@@ -570,6 +571,23 @@ function escapeHtml(str){
   d.textContent = str;
   return d.innerHTML;
 }
+function maskEmail(email){
+  if(!email || !email.includes('@')) return email || '';
+  const [lokal, domain] = email.split('@');
+  const bagianDomain = domain.split('.');
+  const namaDomain = bagianDomain[0] || '';
+  const sisaDomain = bagianDomain.slice(1).join('.');
+
+  const maskLokal = lokal.length <= 2
+    ? lokal[0] + '*'.repeat(Math.max(1, lokal.length - 1))
+    : lokal.slice(0, 2) + '*'.repeat(Math.max(3, lokal.length - 3)) + lokal.slice(-1);
+
+  const maskDomain = namaDomain.length <= 2
+    ? namaDomain[0] + '*'.repeat(Math.max(1, namaDomain.length - 1))
+    : namaDomain[0] + '*'.repeat(Math.max(2, namaDomain.length - 1));
+
+  return maskLokal + '@' + maskDomain + (sisaDomain ? '.' + sisaDomain : '');
+}
 function tampilkanStatus(pesan, error){
   const status = document.getElementById('statusSimpan');
   status.textContent = pesan;
@@ -641,13 +659,16 @@ document.getElementById('formTamu').addEventListener('submit', async (e)=>{
     // Nomor telepon disimpan terpisah, hanya bisa dibaca setelah login.
     await setDoc(doc(db, NAMA_KOLEKSI, refTamu.id, 'privat', 'kontak'), { telepon });
     // Segarkan peta nomor telepon supaya data yang baru saja ditambahkan langsung tampil.
-    await muatSemuaTelepon();
+    const berhasilMuatTelepon = await muatSemuaTelepon();
     renderTabelTamu();
     renderRekap();
     document.getElementById('formTamu').reset();
     document.getElementById('hariWaktuTampil').value = '';
-    tampilkanStatus('Tersimpan.');
-    setTimeout(()=>{ if(document.getElementById('statusSimpan').textContent==='Tersimpan.') tampilkanStatus(''); }, 2500);
+    if(berhasilMuatTelepon){
+      tampilkanStatus('Tersimpan.');
+      setTimeout(()=>{ if(document.getElementById('statusSimpan').textContent==='Tersimpan.') tampilkanStatus(''); }, 2500);
+    }
+    // kalau gagal, pesan error dari muatSemuaTelepon() dibiarkan tampil, tidak ditimpa
   }catch(err){
     tampilkanStatus('Gagal menyimpan: ' + err.message, true);
   }
@@ -656,7 +677,7 @@ document.getElementById('formTamu').addEventListener('submit', async (e)=>{
 
 /* ---------- Ambil nomor telepon (hanya kalau sudah login) ---------- */
 async function muatSemuaTelepon(){
-  if(!sudahLogin){ petaTelepon = {}; return; }
+  if(!sudahLogin){ petaTelepon = {}; return true; }
   try{
     const snap = await getDocs(query(collectionGroup(db, 'privat')));
     const peta = {};
@@ -668,8 +689,12 @@ async function muatSemuaTelepon(){
       }
     });
     petaTelepon = peta;
+    console.log('[BukuTamu] muatSemuaTelepon OK, jumlah data telepon:', Object.keys(peta).length, peta);
+    return true;
   }catch(err){
-    tampilkanStatus('Gagal memuat nomor telepon: ' + err.message, true);
+    console.error('[BukuTamu] Gagal muatSemuaTelepon:', err.code || '', err.message);
+    tampilkanStatus('Gagal memuat nomor telepon (' + (err.code || err.message) + ')', true);
+    return false;
   }
 }
 function teleponTampil(idTamu){
@@ -905,8 +930,10 @@ onAuthStateChanged(auth, async (user)=>{
   document.getElementById('statusLoginWrap').style.display = sudahLogin ? 'flex' : 'none';
   document.getElementById('kartuTambahData').style.display = sudahLogin ? '' : 'none';
   document.getElementById('btnMigrasi').style.display = sudahLogin ? '' : 'none';
+  document.getElementById('btnCetakRekap').style.display = sudahLogin ? '' : 'none';
+  document.getElementById('pesanCetakTerkunci').style.display = sudahLogin ? 'none' : 'inline';
   if(sudahLogin){
-    document.getElementById('emailLoginAktif').textContent = user.email;
+    document.getElementById('emailLoginAktif').textContent = maskEmail(user.email);
   }
 
   await muatSemuaTelepon();
